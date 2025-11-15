@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Box, Container, Flex, Heading, Button, Text, Card, Avatar, TextField, TextArea } from '@radix-ui/themes';
 import { useCurrentAccount } from '@mysten/dapp-kit';
 import { useZkLogin } from '../zklogin/useZkLogin';
+import { API_ENDPOINTS } from '../config/api';
 
 // Types
 interface Post {
@@ -63,8 +64,7 @@ export function Home() {
     
     console.log('Checking profile for:', userAddress);
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
-      const response = await fetch(`${backendUrl}/api/profile/${userAddress}`);
+      const response = await fetch(API_ENDPOINTS.profile(userAddress));
       
       if (response.ok) {
         const data = await response.json();
@@ -92,8 +92,7 @@ export function Home() {
 
   const loadPosts = async () => {
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
-      const response = await fetch(`${backendUrl}/api/posts`);
+      const response = await fetch(API_ENDPOINTS.posts);
       
       if (!response.ok) {
         throw new Error(`Backend returned ${response.status}`);
@@ -110,7 +109,7 @@ export function Home() {
       if (userProfile?.id) {
         try {
           console.log('🔍 Fetching likes for profile:', userProfile.id);
-          const likesResponse = await fetch(`${backendUrl}/api/user-likes/${userProfile.id}`);
+          const likesResponse = await fetch(API_ENDPOINTS.userLikes(userProfile.id));
           console.log('📡 Likes response status:', likesResponse.status);
           
           if (likesResponse.ok) {
@@ -173,7 +172,7 @@ export function Home() {
       
       // Backend sponsors and executes the transaction
       console.log('🚀 Creating profile via backend sponsor...');
-      const response = await fetch('http://localhost:3000/api/create-profile', {
+      const response = await fetch(API_ENDPOINTS.createProfile, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

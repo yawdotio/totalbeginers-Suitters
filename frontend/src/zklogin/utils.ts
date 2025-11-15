@@ -8,6 +8,7 @@ import { generateNonce, generateRandomness, genAddressSeed, getZkLoginSignature 
 import { jwtDecode } from 'jwt-decode';
 import { ZKLOGIN_CONFIG } from './config';
 import type { ZkLoginSession, DecodedJWT, PartialZkLoginSignature } from './types';
+import { API_ENDPOINTS } from '../config/api';
 
 /**
  * Initialize Sui Client
@@ -104,10 +105,8 @@ export function decodeJWT(jwt: string): DecodedJWT {
  * In production, implement your own salt service for privacy
  */
 export async function getUserSalt(jwt: string): Promise<string> {
-  const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
-  
   try {
-    const response = await fetch(`${backendUrl}/api/zklogin/salt`, {
+    const response = await fetch(API_ENDPOINTS.zkLogin.getSalt, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ jwt }),
