@@ -5,7 +5,6 @@ import react from "@vitejs/plugin-react-swc";
 export default defineConfig({
   plugins: [react()],
   optimizeDeps: {
-    include: ['dataloader', '@mysten/walrus'], // Pre-bundle for ESM compatibility
     esbuildOptions: {
       target: 'esnext',
     },

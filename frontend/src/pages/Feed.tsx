@@ -150,11 +150,18 @@ export const Feed: React.FC = () => {
           
           const uploadData = await uploadResponse.json();
           walrusImageUrl = uploadData.imageUrl || '';
+          
+          // Show warning if upload was skipped
+          if (uploadData.note) {
+            console.warn('⚠️ ', uploadData.note);
+            setPostError('Image upload unavailable (insufficient WAL tokens). Post will be created without image.');
+            // Don't return - continue creating post without image
+          }
         } catch (uploadErr) {
           console.error('Image upload error:', uploadErr);
-          setPostError('Failed to upload image. Please try again.');
-          setPostLoading(false);
-          return;
+          setPostError('Failed to upload image. Creating post without image...');
+          // Don't return - allow post creation to continue without image
+          walrusImageUrl = '';
         }
       }
 

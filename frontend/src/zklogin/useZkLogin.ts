@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { normalizeSuiAddress } from '@mysten/sui/utils';
 import {
   generateEphemeralKeyAndNonce,
   getGoogleLoginURL,
@@ -22,6 +23,7 @@ interface UseZkLoginReturn {
   userAddress: string | null;
   decodedJWT: DecodedJWT | null;
   error: string | null;
+  ephemeralKeyPair: string | null;
   login: () => Promise<void>;
   logout: () => void;
 }
@@ -33,6 +35,7 @@ export function useZkLogin(): UseZkLoginReturn {
   const [userAddress, setUserAddress] = useState<string | null>(null);
   const [decodedJWT, setDecodedJWT] = useState<DecodedJWT | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [ephemeralKeyPair, setEphemeralKeyPair] = useState<string | null>(null);
 
 //Check for existing session or OAuth redirect on mount
   useEffect(() => {
@@ -49,6 +52,7 @@ export function useZkLogin(): UseZkLoginReturn {
     if (session?.userAddress && session?.jwt) {
       setIsAuthenticated(true);
       setUserAddress(session.userAddress);
+      setEphemeralKeyPair(session.ephemeralKeyPair || null);
       try {
         const decoded = decodeJWT(session.jwt);
         setDecodedJWT(decoded);
@@ -128,9 +132,6 @@ export function useZkLogin(): UseZkLoginReturn {
       // Compute zkLogin address seed
       const addressSeed = computeZkLoginAddress(salt, decoded);
       
-      // Import address utilities from Sui SDK
-      const { normalizeSuiAddress } = await import('@mysten/sui/utils');
-      
       // The zkLogin address is computed using genAddressSeed which returns a BigInt string
       // Convert the address seed to a 32-byte array and then to a Sui address
       const addressSeedBigInt = BigInt(addressSeed);
@@ -161,6 +162,7 @@ export function useZkLogin(): UseZkLoginReturn {
 
       setUserAddress(derivedAddress);
       setIsAuthenticated(true);
+      setEphemeralKeyPair(session.ephemeralKeyPair);
       setIsLoading(false);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to complete login';
@@ -179,6 +181,7 @@ export function useZkLogin(): UseZkLoginReturn {
     setIsAuthenticated(false);
     setUserAddress(null);
     setDecodedJWT(null);
+    setEphemeralKeyPair(null);
     setError(null);
     setIsReady(true);
   }, []);
@@ -190,6 +193,7 @@ export function useZkLogin(): UseZkLoginReturn {
     userAddress,
     decodedJWT,
     error,
+    ephemeralKeyPair,
     login,
     logout,
   };

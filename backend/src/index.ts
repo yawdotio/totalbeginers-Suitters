@@ -629,16 +629,26 @@ app.post('/api/create-post', async (req: Request, res: Response) => {
     console.log('📝 Creating post for user:', userAddress);
     console.log('  - Profile:', profileId);
     console.log('  - Content:', content.substring(0, 50) + '...');
+    if (imageUrl) {
+      console.log('  - Image URL length:', imageUrl.length);
+    }
 
     // Build the transaction
     const tx = new Transaction();
+    
+    // If imageUrl is too long (>16KB would cause issues), pass empty string
+    const imageUrlToUse = imageUrl && imageUrl.length < 15000 ? imageUrl : '';
+    if (imageUrl && imageUrl.length >= 15000) {
+      console.warn('⚠️  Image URL too long, skipping image in transaction');
+    }
+    
     tx.moveCall({
       target: `${PACKAGE_ID}::suitter::create_post`,
       arguments: [
         tx.object(profileId), // Shared profile object
         tx.pure.address(userAddress), // User's zkLogin address
         tx.pure.string(content),
-        tx.pure.string(imageUrl || ''),
+        tx.pure.string(imageUrlToUse),
         tx.object('0x6'), // Clock object
       ],
     });
@@ -930,8 +940,7 @@ app.post('/api/execute', async (req: Request, res: Response) => {
 
 /**
  * POST /api/upload-image
- * Upload image to Walrus decentralized storage using HTTP API
- * For now, we'll convert to data URL as a temporary solution until Walrus testnet is stable
+ * Upload image to Walrus decentralized storage (with fallback for insufficient WAL tokens)
  */
 app.post('/api/upload-image', upload.single('image'), async (req: Request, res: Response) => {
   try {
@@ -945,17 +954,52 @@ app.post('/api/upload-image', upload.single('image'), async (req: Request, res: 
       mimetype: req.file.mimetype,
     });
 
-    // TEMPORARY SOLUTION: Convert to data URL
-    // TODO: Once Walrus testnet is stable, switch back to decentralized storage
-    const base64Image = req.file.buffer.toString('base64');
-    const dataUrl = `data:${req.file.mimetype};base64,${base64Image}`;
+    // Try to upload to Walrus if sponsor wallet is available
+    if (sponsorKeypair) {
+      try {
+        // Initialize Walrus client
+        const walrusClient = new WalrusClient({
+          network: SUI_NETWORK as 'testnet' | 'mainnet',
+          suiClient: suiClient,
+        });
 
-    console.log('Image converted to data URL (length:', dataUrl.length, ')');
+        // Upload to Walrus
+        console.log('Uploading to Walrus...');
+        const result = await walrusClient.writeBlob({
+          blob: req.file.buffer,
+          deletable: true,
+          epochs: 5,
+          signer: sponsorKeypair,
+        });
 
+        console.log('✅ Image uploaded to Walrus, blob ID:', result.blobId);
+
+        // Return the Walrus URL
+        const aggregatorUrl = process.env.WALRUS_AGGREGATOR_URL || 'https://aggregator.walrus-testnet.walrus.space';
+        const fullUrl = `${aggregatorUrl}/v1/${result.blobId}`;
+
+        return res.json({
+          imageUrl: fullUrl,
+          blobId: result.blobId,
+          aggregatorUrl: aggregatorUrl,
+          storage: 'walrus',
+        });
+      } catch (walrusError: any) {
+        // If Walrus upload fails (e.g., insufficient WAL tokens), fall back to placeholder
+        console.warn('⚠️  Walrus upload failed:', walrusError.message);
+        console.log('📝 Falling back to image placeholder...');
+      }
+    }
+
+    // Fallback: Return a placeholder or empty string
+    // This allows posts to be created without images when Walrus is unavailable
+    console.log('ℹ️  Returning empty image URL (Walrus unavailable or insufficient WAL tokens)');
+    
     res.json({
-      imageUrl: dataUrl,
-      blobId: 'temp-data-url',
-      note: 'Using data URL temporarily until Walrus testnet is available',
+      imageUrl: '', // Empty string - post will be created without image
+      blobId: null,
+      storage: 'none',
+      note: 'Image upload skipped - insufficient WAL tokens. Get WAL from: https://docs.walrus.site/usage/setup.html#testnet-wal-faucet',
     });
 
   } catch (error: any) {
