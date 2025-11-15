@@ -41,6 +41,16 @@ export const Feed: React.FC = () => {
   const [imageFileName, setImageFileName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Austin: Profile creation modal state
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [isCreatingProfile, setIsCreatingProfile] = useState(false);
+  const [profileForm, setProfileForm] = useState({
+    username: '',
+    displayName: '',
+    bio: '',
+    imageUrl: '',
+  });
+
   // Austin: Get display name
   const getDisplayName = () => {
     if (profile?.username) return profile.username;
@@ -72,15 +82,39 @@ export const Feed: React.FC = () => {
               username: data.profile.username,
               imageUrl: data.profile.image_url,
             });
+            setShowProfileModal(false);
+          } else {
+            // User logged in but no profile exists - show modal
+            setShowProfileModal(true);
+            // Pre-fill with Google data if available
+            if (decodedJWT) {
+              setProfileForm(prev => ({
+                ...prev,
+                displayName: decodedJWT.name || '',
+                imageUrl: decodedJWT.picture || '',
+              }));
+            }
+          }
+        } else {
+          // Profile not found - show modal
+          setShowProfileModal(true);
+          if (decodedJWT) {
+            setProfileForm(prev => ({
+              ...prev,
+              displayName: decodedJWT.name || '',
+              imageUrl: decodedJWT.picture || '',
+            }));
           }
         }
       } catch (err) {
         console.error('Failed to fetch profile:', err);
+        // On error, show modal to allow profile creation
+        setShowProfileModal(true);
       }
     };
 
     fetchProfile();
-  }, [userAddress]);
+  }, [userAddress, decodedJWT]);
 
   // Austin: Kept the exact same data fetching logic
   useEffect(() => {
@@ -206,6 +240,66 @@ export const Feed: React.FC = () => {
       setPostError(err instanceof Error ? err.message : 'Failed to create post');
     } finally {
       setPostLoading(false);
+    }
+  };
+
+  // Austin: Handle profile creation
+  const handleCreateProfile = async () => {
+    if (!userAddress || !profileForm.username || !profileForm.displayName) return;
+    
+    setIsCreatingProfile(true);
+    setPostError(null);
+    
+    try {
+      console.log('Creating profile:', profileForm);
+      
+      // Use Google profile image or placeholder
+      let imageUrl = profileForm.imageUrl;
+      if (!imageUrl && decodedJWT?.picture) {
+        imageUrl = decodedJWT.picture;
+      }
+      if (!imageUrl) {
+        imageUrl = `https://ui-avatars.com/api/?name=${profileForm.displayName}&background=random`;
+      }
+      
+      // Backend sponsors and executes the transaction
+      const response = await fetch(API_ENDPOINTS.createProfile, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userAddress,
+          username: profileForm.username,
+          bio: profileForm.bio,
+          imageUrl,
+        }),
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create profile');
+      }
+      
+      const result = await response.json();
+      console.log('Profile created successfully:', result);
+      
+      // Extract the created profile object ID
+      const profileObject = result.objectChanges?.find((obj: any) => 
+        obj.type === 'created' && obj.objectType?.includes('::Profile')
+      );
+      
+      if (profileObject) {
+        setProfile({
+          objectId: profileObject.objectId,
+          username: profileForm.username,
+          imageUrl: imageUrl,
+        });
+        setShowProfileModal(false);
+      }
+    } catch (err) {
+      console.error('Error creating profile:', err);
+      setPostError(err instanceof Error ? err.message : 'Failed to create profile');
+    } finally {
+      setIsCreatingProfile(false);
     }
   };
 
@@ -393,6 +487,112 @@ export const Feed: React.FC = () => {
 
       {/* Austin: Post list - same logic, new styling */}
       {renderContent()}
+
+      {/* Austin: Profile Creation Modal */}
+      {showProfileModal && userAddress && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-black dark:text-white mb-2">Create Your Profile</h2>
+              <p className="text-slate-600 dark:text-slate-400 text-sm">Welcome! Let's set up your profile to get started.</p>
+            </div>
+
+            {postError && (
+              <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400 text-sm">
+                {postError}
+              </div>
+            )}
+
+            <div className="space-y-4">
+              {/* Username */}
+              <div>
+                <label className="block text-sm font-medium text-black dark:text-white mb-1">
+                  Username <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  className="w-full px-4 py-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="Choose a unique username"
+                  value={profileForm.username}
+                  onChange={(e) => setProfileForm({ ...profileForm, username: e.target.value })}
+                  maxLength={30}
+                />
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  3-30 characters, no spaces
+                </p>
+              </div>
+
+              {/* Display Name */}
+              <div>
+                <label className="block text-sm font-medium text-black dark:text-white mb-1">
+                  Display Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  className="w-full px-4 py-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="Your name"
+                  value={profileForm.displayName}
+                  onChange={(e) => setProfileForm({ ...profileForm, displayName: e.target.value })}
+                  maxLength={50}
+                />
+              </div>
+
+              {/* Bio */}
+              <div>
+                <label className="block text-sm font-medium text-black dark:text-white mb-1">
+                  Bio
+                </label>
+                <textarea
+                  className="w-full px-4 py-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                  placeholder="Tell us about yourself..."
+                  value={profileForm.bio}
+                  onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })}
+                  maxLength={160}
+                  rows={3}
+                ></textarea>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  {profileForm.bio.length}/160 characters
+                </p>
+              </div>
+
+              {/* Profile Image Preview */}
+              {(profileForm.imageUrl || decodedJWT?.picture) && (
+                <div className="flex items-center gap-3">
+                  <div 
+                    className="w-16 h-16 rounded-full bg-cover bg-center"
+                    style={{ backgroundImage: `url('${profileForm.imageUrl || decodedJWT?.picture}')` }}
+                  ></div>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
+                    Your profile picture from Google
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={handleCreateProfile}
+                disabled={isCreatingProfile || !profileForm.username || !profileForm.displayName}
+                className="flex-1 px-4 py-3 bg-primary text-white rounded-lg font-bold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                {isCreatingProfile ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="material-symbols-outlined text-xl animate-spin">progress_activity</span>
+                    Creating...
+                  </span>
+                ) : (
+                  'Create Profile'
+                )}
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-4 text-center">
+              You need a profile to post and interact on Suitter
+            </p>
+          </div>
+        </div>
+      )}
     </>
   );
 };
