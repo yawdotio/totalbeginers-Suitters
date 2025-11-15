@@ -223,7 +223,7 @@ export function Home() {
       console.log('Creating post:', newPostContent);
       
       // Backend sponsors and executes the transaction
-      const response = await fetch('http://localhost:3000/api/create-post', {
+      const response = await fetch('https://totalbeginers-suitters.onrender.com/api/create-post', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -297,7 +297,7 @@ export function Home() {
     
     try {
       console.log('Liking post:', postId);
-      const response = await fetch('http://localhost:3000/api/like-post', {
+      const response = await fetch('https://totalbeginers-suitters.onrender.com/api/like-post', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -369,7 +369,7 @@ export function Home() {
     
     try {
       console.log('Unliking post:', postId);
-      const response = await fetch('http://localhost:3000/api/unlike-post', {
+      const response = await fetch('https://totalbeginers-suitters.onrender.com/api/unlike-post', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
