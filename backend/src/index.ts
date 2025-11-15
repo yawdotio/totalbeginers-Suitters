@@ -6,6 +6,8 @@ import { Transaction } from '@mysten/sui/transactions';
 import type { SuiObjectChangeCreated } from '@mysten/sui/client';
 import crypto from 'crypto';
 import { EnokiClient } from '@mysten/enoki';
+import multer from 'multer';
+import { WalrusClient } from '@mysten/walrus';
 import {
   getAllPosts,
   getProfile,
@@ -63,6 +65,20 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Configure multer for file uploads (store in memory)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+});
+
+// Initialize Walrus client
+const walrusClient = new WalrusClient({
+  network: 'testnet',
+  suiClient: suiClient,
+});
 
 // ============================================================================
 // READ-ONLY ENDPOINTS
@@ -904,6 +920,49 @@ app.post('/api/execute', async (req: Request, res: Response) => {
     res.status(500).json({
       error: errorMessage,
       details: error?.errors || []
+    });
+  }
+});
+
+// ============================================================================
+// IMAGE UPLOAD ENDPOINT
+// ============================================================================
+
+/**
+ * POST /api/upload-image
+ * Upload image to Walrus decentralized storage using HTTP API
+ * For now, we'll convert to data URL as a temporary solution until Walrus testnet is stable
+ */
+app.post('/api/upload-image', upload.single('image'), async (req: Request, res: Response) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No image file provided' });
+    }
+
+    console.log('Processing image upload:', {
+      filename: req.file.originalname,
+      size: req.file.size,
+      mimetype: req.file.mimetype,
+    });
+
+    // TEMPORARY SOLUTION: Convert to data URL
+    // TODO: Once Walrus testnet is stable, switch back to decentralized storage
+    const base64Image = req.file.buffer.toString('base64');
+    const dataUrl = `data:${req.file.mimetype};base64,${base64Image}`;
+
+    console.log('Image converted to data URL (length:', dataUrl.length, ')');
+
+    res.json({
+      imageUrl: dataUrl,
+      blobId: 'temp-data-url',
+      note: 'Using data URL temporarily until Walrus testnet is available',
+    });
+
+  } catch (error: any) {
+    console.error('Error processing image:', error);
+    res.status(500).json({
+      error: error?.message || 'Failed to process image',
+      details: error,
     });
   }
 });

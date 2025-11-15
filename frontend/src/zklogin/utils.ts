@@ -57,9 +57,12 @@ export async function generateEphemeralKeyAndNonce(): Promise<{
  * Step 2: Construct OAuth Login URL (Google)
  */
 export function getGoogleLoginURL(nonce: string): string {
+  // Always redirect to the root of the application
+  const redirectUri = window.location.origin;
+  
   const params = new URLSearchParams({
     client_id: ZKLOGIN_CONFIG.GOOGLE.CLIENT_ID,
-    redirect_uri: ZKLOGIN_CONFIG.REDIRECT_URI,
+    redirect_uri: redirectUri,
     response_type: 'id_token',
     scope: 'openid email profile',
     nonce: nonce,

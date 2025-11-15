@@ -126,6 +126,38 @@ export const Feed: React.FC = () => {
     setPostError(null);
 
     try {
+      let walrusImageUrl = '';
+      
+      // Austin: Upload image to Walrus if one is selected
+      if (imageDataUrl) {
+        try {
+          // Convert base64 data URL to blob
+          const response = await fetch(imageDataUrl);
+          const blob = await response.blob();
+          
+          // Upload to Walrus via backend
+          const formData = new FormData();
+          formData.append('image', blob, imageFileName || 'image.jpg');
+          
+          const uploadResponse = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'}/api/upload-image`, {
+            method: 'POST',
+            body: formData,
+          });
+          
+          if (!uploadResponse.ok) {
+            throw new Error('Failed to upload image to Walrus');
+          }
+          
+          const uploadData = await uploadResponse.json();
+          walrusImageUrl = uploadData.imageUrl || '';
+        } catch (uploadErr) {
+          console.error('Image upload error:', uploadErr);
+          setPostError('Failed to upload image. Please try again.');
+          setPostLoading(false);
+          return;
+        }
+      }
+
       const response = await fetch(API_ENDPOINTS.createPost, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -133,7 +165,7 @@ export const Feed: React.FC = () => {
           profileId: profile.objectId,
           userAddress: userAddress,
           content: newPostContent,
-          imageUrl: imageDataUrl || '',
+          imageUrl: walrusImageUrl,
         }),
       });
 
