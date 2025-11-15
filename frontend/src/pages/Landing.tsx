@@ -146,8 +146,8 @@ export default function Landing() {
         }
 
         .twitter-icon {
-          height: 5rem;
-          width: 5rem;
+          height: 8rem;
+          width: 8rem;
           color: white;
           margin-bottom: 1.5rem;
         }
@@ -348,7 +348,7 @@ export default function Landing() {
         <div className="left-panel">
           <div className="left-panel-bg"></div>
           <div className="left-panel-content">
-            <img src="/suitter-logo.svg" alt="Suitter Logo" className="twitter-icon" />
+            <img src="/logo.jpeg" alt="Suitter Logo" className="twitter-icon" />
             <h1>Connect with what's happening.</h1>
             <p>Join the conversation, follow interests, and be in the know.</p>
           </div>
